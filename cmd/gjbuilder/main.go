@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	input   = kingpin.Flag("input", "input path").Default(".").Short('i').String()
+	input   = kingpin.Arg("input", "input path").Default(".").String()
 	dupekey = kingpin.Flag("dupekey", "feature property key to remove duplicate values").Default("").Short('k').String()
 	output  = kingpin.Flag("output", "output filepath").Default("").Short('o').String()
 )
@@ -22,9 +22,11 @@ var (
 var (
 	ErrorOpenInput                = errors.New("error: unable to open input (filepath)")
 	ErrorInvalidInputDir          = errors.New("error: input dir does not exist or is not valid")
+	ErrorInvalidOutputDir         = errors.New("error: output dir does not exist or is not valid")
 	ErrorInvalidFeatureCollection = errors.New("error: invalid geojson feature collection")
 	ErrorJSONConversion           = errors.New("error: unable to convert json")
 	ErrorSaveFile                 = errors.New("error: unable to save output file")
+	WarningNoFiles                = errors.New("warning: no files found in input dir")
 )
 
 func main() {
@@ -35,12 +37,20 @@ func main() {
 		log.Fatal(ErrorInvalidInputDir)
 	}
 
+	if !gjfuncs.DirExists(filepath.Dir(*input)) {
+		log.Fatal(ErrorInvalidOutputDir)
+	}
+
 	files, err := ioutil.ReadDir(*input)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var outputFilePath string
+	numFiles := len(files)
+	if numFiles == 0 {
+		log.Fatal(WarningNoFiles)
+	}
+
 	duplicates := make(map[string]bool)
 	newCollection := geojson.NewFeatureCollection()
 
@@ -53,30 +63,50 @@ func main() {
 			continue
 		}
 
-		filePath := filepath.Join(*input, f.Name())
+		inputFilePath := filepath.Join(*input, f.Name())
 
-		b, err := gjfuncs.Open(filePath)
+		b, err := gjfuncs.Open(inputFilePath)
 		if err != nil {
 			log.Fatal(ErrorOpenInput)
 		}
 
+		// if feature...
+		f, err := geojson.UnmarshalFeature(b)
+		if err == nil {
+			if *dupekey != "" {
+				v, ok := f.Properties[*dupekey]
+				if ok {
+					if s, ok := v.(string); ok {
+						if duplicates[s] {
+							continue
+						}
+						duplicates[s] = true
+					}
+				}
+			}
+			newCollection.Append(f)
+			numFeatures++
+			continue
+		}
+
+		// if feature collection...
 		fc, err := geojson.UnmarshalFeatureCollection(b)
 		if err != nil {
 			log.Fatal(ErrorInvalidFeatureCollection)
 		}
 
 		for _, f := range fc.Features {
-			v, ok := f.Properties[*dupekey]
-			if !ok {
-				continue
-			}
-			if s, ok := v.(string); ok {
-				if duplicates[s] {
-					continue
+			if *dupekey != "" {
+				v, ok := f.Properties[*dupekey]
+				if ok {
+					if s, ok := v.(string); ok {
+						if duplicates[s] {
+							continue
+						}
+						duplicates[s] = true
+					}
 				}
-				duplicates[s] = true
 			}
-
 			newCollection.Append(f)
 			numFeatures++
 		}
@@ -87,15 +117,14 @@ func main() {
 		log.Fatal(ErrorJSONConversion)
 	}
 
+	outputFilePath := filepath.Join(".", "feature-collection.geojson")
 	if *output != "" {
 		outputFilePath = *output
-	} else {
-		outputFilePath = filepath.Join(".", "feature-collection.geojson")
 	}
 
 	err = ioutil.WriteFile(outputFilePath, b, 0644)
 	if err != nil {
-		log.Fatal(ErrorSaveFile)
+		log.Fatal(err)
 	}
 	fmt.Printf("saved %d features to %s\n", numFeatures, outputFilePath)
 }
