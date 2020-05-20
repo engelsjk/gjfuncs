@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/engelsjk/gjfuncs/gjfuncs"
+	"github.com/engelsjk/gjfunks/gjfunks"
 	"github.com/paulmach/orb/geojson"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -37,7 +37,7 @@ func main() {
 
 	kingpin.Parse()
 
-	file, err := gjfuncs.GetFile(*input)
+	file, err := gjfunks.GetFile(*input)
 	if err != nil {
 		fmt.Println(ErrorOpenInput)
 		return
@@ -54,7 +54,7 @@ func main() {
 		return
 	}
 
-	b, err := gjfuncs.Open(file)
+	b, err := gjfunks.Open(file)
 	if err != nil {
 		fmt.Println(ErrorOpenInput)
 		return
@@ -66,14 +66,14 @@ func main() {
 	}
 
 	if *input != "" {
-		if !gjfuncs.FileExists(*input) {
+		if !gjfunks.FileExists(*input) {
 			fmt.Println(ErrorInvalidInputFile)
 			return
 		}
 	}
 
 	if *output != "" {
-		if !gjfuncs.DirExists(*output) {
+		if !gjfunks.DirExists(*output) {
 			fmt.Println(ErrorInvalidOutputDir)
 			return
 		}

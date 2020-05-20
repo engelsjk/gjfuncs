@@ -1,4 +1,4 @@
-module github.com/engelsjk/gjfuncs
+module github.com/engelsjk/gjfunks
 
 go 1.14
 

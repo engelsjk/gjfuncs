@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 
-	"github.com/engelsjk/gjfuncs/gjfuncs"
+	"github.com/engelsjk/gjfunks/gjfunks"
 	"github.com/paulmach/orb/geojson"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -34,13 +33,13 @@ func main() {
 
 	kingpin.Parse()
 
-	if !gjfuncs.DirExists(*input) {
+	if !gjfunks.DirExists(*input) {
 		fmt.Println(ErrorInvalidInputDir)
 		return
 	}
 
-	if !gjfuncs.DirExists(filepath.Dir(*input)) {
-		log.Fatal(ErrorInvalidOutputDir)
+	if !gjfunks.DirExists(filepath.Dir(*input)) {
+		fmt.Println(ErrorInvalidOutputDir)
 		return
 	}
 
@@ -64,20 +63,20 @@ func main() {
 
 		filename := f.Name()
 
-		if !gjfuncs.IsGeoJSONExt(filename) {
+		if !gjfunks.IsGeoJSONExt(filename) {
 			continue
 		}
 
 		inputFilePath := filepath.Join(*input, f.Name())
 
-		file, err := gjfuncs.GetFile(inputFilePath)
+		file, err := gjfunks.GetFile(inputFilePath)
 		if err != nil {
 			fmt.Println(ErrorOpenInput)
 			return
 		}
 		defer file.Close()
 
-		b, err := gjfuncs.Open(file)
+		b, err := gjfunks.Open(file)
 		if err != nil {
 			fmt.Println(ErrorOpenInput)
 			return
