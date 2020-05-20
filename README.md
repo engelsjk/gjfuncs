@@ -1,4 +1,4 @@
-# gjfuncs
+# gjfunks
 
 A small library and suite of tools for manipuilating GeoJSON files.
 
@@ -7,7 +7,7 @@ A small library and suite of tools for manipuilating GeoJSON files.
 Splits a GeoJSON FeatureCollection up into separate Features.
 
 ```bash
-go get github.com/engelsjk/cmd/gjsplitter
+go get github.com/engelsjk/gjfunks/cmd/gjsplitter
 ```
 
 * Reads in from a file or stdin, spits out to separate files or stdout.
@@ -30,7 +30,7 @@ Args:
 ## gjbuilder
 
 ```bash
-go get github.com/engelsjk/gjfuncs/cmd/gjbuilder
+go get github.com/engelsjk/gjfunks/cmd/gjbuilder
 ```
 
 
