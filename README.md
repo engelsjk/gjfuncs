@@ -1,6 +1,6 @@
 # gjfunks
 
-A small library and suite of tools for manipuilating GeoJSON files.
+A small library and suite of tools for manipulating GeoJSON files.
 
 ## gjsplitter
 
