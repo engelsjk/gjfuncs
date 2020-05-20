@@ -16,11 +16,7 @@ func GetFile(filename string) (*os.File, error) {
 	return nil, errors.New("unable to open file")
 }
 
-func Open(filename string) ([]byte, error) {
-	f, err := GetFile(filename)
-	if err != nil {
-		return nil, err
-	}
+func Open(f *os.File) ([]byte, error) {
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return nil, err

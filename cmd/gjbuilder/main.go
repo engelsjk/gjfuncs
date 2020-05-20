@@ -25,6 +25,7 @@ var (
 	ErrorInvalidOutputDir         = errors.New("error: output dir does not exist or is not valid")
 	ErrorInvalidFeatureCollection = errors.New("error: invalid geojson feature collection")
 	ErrorJSONConversion           = errors.New("error: unable to convert json")
+	ErrorReadDirFiles             = errors.New("error: unable to read directory files")
 	ErrorSaveFile                 = errors.New("error: unable to save output file")
 	WarningNoFiles                = errors.New("warning: no files found in input dir")
 )
@@ -34,21 +35,25 @@ func main() {
 	kingpin.Parse()
 
 	if !gjfuncs.DirExists(*input) {
-		log.Fatal(ErrorInvalidInputDir)
+		fmt.Println(ErrorInvalidInputDir)
+		return
 	}
 
 	if !gjfuncs.DirExists(filepath.Dir(*input)) {
 		log.Fatal(ErrorInvalidOutputDir)
+		return
 	}
 
 	files, err := ioutil.ReadDir(*input)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(ErrorReadDirFiles)
+		return
 	}
 
 	numFiles := len(files)
 	if numFiles == 0 {
-		log.Fatal(WarningNoFiles)
+		fmt.Println(WarningNoFiles)
+		return
 	}
 
 	duplicates := make(map[string]bool)
@@ -67,7 +72,8 @@ func main() {
 
 		b, err := gjfuncs.Open(inputFilePath)
 		if err != nil {
-			log.Fatal(ErrorOpenInput)
+			fmt.Println(ErrorOpenInput)
+			return
 		}
 
 		// if feature...
@@ -92,7 +98,8 @@ func main() {
 		// if feature collection...
 		fc, err := geojson.UnmarshalFeatureCollection(b)
 		if err != nil {
-			log.Fatal(ErrorInvalidFeatureCollection)
+			fmt.Println(ErrorInvalidFeatureCollection)
+			return
 		}
 
 		for _, f := range fc.Features {
@@ -114,7 +121,8 @@ func main() {
 
 	b, err := json.MarshalIndent(newCollection, "", " ")
 	if err != nil {
-		log.Fatal(ErrorJSONConversion)
+		fmt.Println(ErrorJSONConversion)
+		return
 	}
 
 	outputFilePath := filepath.Join(".", "feature-collection.geojson")
@@ -124,7 +132,8 @@ func main() {
 
 	err = ioutil.WriteFile(outputFilePath, b, 0644)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(ErrorSaveFile) //
+		return
 	}
 	fmt.Printf("saved %d features to %s\n", numFeatures, outputFilePath)
 }

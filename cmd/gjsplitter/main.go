@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
 	"path/filepath"
 	"strings"
@@ -25,6 +24,7 @@ var (
 
 var (
 	ErrorOpenInput                = errors.New("error: unable to open input (filepath or stdin)")
+	WarningStdinEmpty             = errors.New("warning: stdin is empty")
 	ErrorInvalidInputFile         = errors.New("error: input file does not exist or is not valid")
 	ErrorInvalidOutputDir         = errors.New("error: output dir does not exist or is not valid")
 	ErrorInvalidFeatureCollection = errors.New("error: invalid geojson feature collection")
@@ -37,25 +37,43 @@ func main() {
 
 	kingpin.Parse()
 
-	b, err := gjfuncs.Open(*input)
+	f, err := gjfuncs.GetFile(*input)
 	if err != nil {
-		log.Fatal(ErrorOpenInput)
+		fmt.Println(ErrorOpenInput)
+		return
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		fmt.Println(ErrorOpenInput)
+		return
+	}
+	if fi.Size() == 0 {
+		fmt.Println(WarningStdinEmpty)
+		return
+	}
+
+	b, err := gjfuncs.Open(f)
+	if err != nil {
+		fmt.Println(ErrorOpenInput)
+		return
 	}
 
 	fc, err := geojson.UnmarshalFeatureCollection(b)
 	if err != nil {
-		log.Fatal(ErrorInvalidFeatureCollection)
+		fmt.Println(ErrorInvalidFeatureCollection)
 	}
 
 	if *input != "" {
 		if !gjfuncs.FileExists(*input) {
-			log.Fatal(ErrorInvalidInputFile)
+			fmt.Println(ErrorInvalidInputFile)
+			return
 		}
 	}
 
 	if *output != "" {
 		if !gjfuncs.DirExists(*output) {
-			log.Fatal(ErrorInvalidOutputDir)
+			fmt.Println(ErrorInvalidOutputDir)
+			return
 		}
 	}
 
@@ -69,7 +87,8 @@ func main() {
 			// json w/ no indents if stdout
 			b, err := f.MarshalJSON()
 			if err != nil {
-				log.Fatal(ErrorInvalidFeature)
+				fmt.Println(ErrorInvalidFeature)
+				return
 			}
 			fmt.Println(string(b))
 			continue
@@ -119,12 +138,14 @@ func main() {
 		// indent json (pretty-print kinda) if writing to file
 		b, err := json.MarshalIndent(f, "", " ")
 		if err != nil {
-			log.Fatal(ErrorJSONConversion)
+			fmt.Println(ErrorJSONConversion)
+			return
 		}
 
 		err = ioutil.WriteFile(outputFilePath, b, 0644)
 		if err != nil {
-			log.Fatal(ErrorSaveFile)
+			fmt.Println(ErrorSaveFile)
+			return
 		}
 	}
 }
