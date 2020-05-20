@@ -37,12 +37,14 @@ func main() {
 
 	kingpin.Parse()
 
-	f, err := gjfuncs.GetFile(*input)
+	file, err := gjfuncs.GetFile(*input)
 	if err != nil {
 		fmt.Println(ErrorOpenInput)
 		return
 	}
-	fi, err := f.Stat()
+	defer file.Close()
+
+	fi, err := file.Stat()
 	if err != nil {
 		fmt.Println(ErrorOpenInput)
 		return
@@ -52,7 +54,7 @@ func main() {
 		return
 	}
 
-	b, err := gjfuncs.Open(f)
+	b, err := gjfuncs.Open(file)
 	if err != nil {
 		fmt.Println(ErrorOpenInput)
 		return

@@ -21,10 +21,6 @@ func Open(f *os.File) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = f.Close()
-	if err != nil {
-		return nil, err
-	}
 	return b, nil
 }
 

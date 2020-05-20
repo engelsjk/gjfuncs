@@ -1,4 +1,4 @@
-package main
+package gjbuilder
 
 import (
 	"encoding/json"
@@ -70,7 +70,14 @@ func main() {
 
 		inputFilePath := filepath.Join(*input, f.Name())
 
-		b, err := gjfuncs.Open(inputFilePath)
+		file, err := gjfuncs.GetFile(inputFilePath)
+		if err != nil {
+			fmt.Println(ErrorOpenInput)
+			return
+		}
+		defer file.Close()
+
+		b, err := gjfuncs.Open(file)
 		if err != nil {
 			fmt.Println(ErrorOpenInput)
 			return
