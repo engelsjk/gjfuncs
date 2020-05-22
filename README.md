@@ -33,5 +33,7 @@ Args:
 go get github.com/engelsjk/gjfunks/cmd/gjbuilder
 ```
 
+## ToDo
 
+* Add NDJSON format as an output support to both gjsplitter and gjbuilder
 
