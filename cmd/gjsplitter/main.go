@@ -24,7 +24,7 @@ var (
 
 var (
 	ErrorOpenInput                = errors.New("error: unable to open input (filepath or stdin)")
-	WarningStdinEmpty             = errors.New("warning: stdin is empty")
+	WarningInputEmpty             = errors.New("warning: input is empty")
 	ErrorInvalidInputFile         = errors.New("error: input file does not exist or is not valid")
 	ErrorInvalidOutputDir         = errors.New("error: output dir does not exist or is not valid")
 	ErrorInvalidFeatureCollection = errors.New("error: invalid geojson feature collection")
@@ -50,7 +50,7 @@ func main() {
 		return
 	}
 	if fi.Size() == 0 {
-		fmt.Println(WarningStdinEmpty)
+		fmt.Println(WarningInputEmpty)
 		return
 	}
 

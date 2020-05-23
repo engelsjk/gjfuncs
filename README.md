@@ -1,6 +1,6 @@
 # gjfunks
 
-A small library and suite of tools for manipulating GeoJSON files.
+*Experimental!* A small library and suite of tools for manipulating GeoJSON files.
 
 ## gjsplitter
 
@@ -35,5 +35,6 @@ go get github.com/engelsjk/gjfunks/cmd/gjbuilder
 
 ## ToDo
 
-* Add NDJSON format as an output support to both gjsplitter and gjbuilder
-
+* Make sure gjbuilder is working correctly after edits?
+* Clean up flags on gjsplitter
+* Add flag to correct polygon orientation to GeoJSON spec (both gjbuilder and gjsplitter)
