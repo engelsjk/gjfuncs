@@ -14,36 +14,14 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-var (
-	input     = kingpin.Arg("input", "input path").Default("").String()
-	output    = kingpin.Flag("output", "output filepath").Default("").Short('o').String()
-	dupekey   = kingpin.Flag("dupekey", "feature property key to remove duplicate values").Default("").Short('k').String()
-	ndjson    = kingpin.Flag("ndjson", "output as newline-delimited json").Default("false").Short('n').Bool()
-	overwrite = kingpin.Flag("overwrite", "overwrite existing output file").Default("false").Short('f').Bool()
-)
-
-var (
-	ErrorInvalidInputPath  = "gjbuilder: Input path does not exist or is not valid"
-	ErrorInvalidOutputPath = "gjbuilder: Output path does not exist or is not valid"
-
-	WarningOutputAlreadyExists = "gjbuilder: File '%s' already exists. You can use --overwrite if you want to delete the old file.\n"
-	ErrorOpenInput             = "gjbuilder: Unable to open input file %s\n"
-	ErrorRemoveOutput          = "gjbuilder: Unable to remove output file\n"
-
-	ErrorInvalidFeatureCollection = "gjbuilder: Invalid geojson feature collection in file %s\n"
-	ErrorJSONConversion           = "gjbuilder: Unable to convert json\n"
-	ErrorReadDirFiles             = "gjbuilder: Unable to read directory files\n"
-	ErrorSaveFile                 = "gjbuilder: Unable to save output file\n"
-	ErrorWriteFile                = "gjbuilder: Unable to write to output file\n"
-	ErrorCloseFile                = "gjbuilder: Unable to close input file\n"
-	WarningNoFiles                = "gjbuilder: No files found in input dir\n"
-)
+// ToDo: add some flag options for handling features
+// 1. fix ring orientation for polygons/multipolygons to match spec
+// 2. limit coordinate decimal precision
+// 3. keep or remove properties by tag
+// ?. ???
 
 const (
-	defaultFilename = "gjfeatures"
-)
-
-const (
+	name   = "gjbuilder"
 	banner = `
 ╋╋╋╋╋┏┓╋╋╋╋╋┏┓╋╋┏┓
 ╋╋╋╋┏┫┃╋╋╋╋╋┃┃╋╋┃┃
@@ -53,147 +31,128 @@ const (
 ┗━┓┃┃┣━━┻━━┻┻━┻━━┻━━┻┛
 ┏━┛┣┛┃
 ┗━━┻━┛
-harder.faster.better.stronger...geojson
-
+building one file from many .geojson files
 try "gjbuilder --help" to get started
-\n`
+`
+	defaultFilename = "gjfeatures"
+)
+
+var (
+	input     = kingpin.Arg("input", "input path").Default("").String()
+	output    = kingpin.Flag("output", "output filepath").Default("").Short('o').String()
+	dupekey   = kingpin.Flag("dupekey", "feature property key to remove duplicate values").Default("").Short('k').String()
+	ndjson    = kingpin.Flag("ndjson", "output as newline-delimited json").Default("false").Short('n').Bool()
+	overwrite = kingpin.Flag("overwrite", "overwrite existing output file").Default("false").Short('f').Bool()
 )
 
 func main() {
 
 	kingpin.Parse()
 
-	inputPath := *input
-	outputFilePath := *output
-	dupeKey := *dupekey
-	isND := *ndjson
-	isOverwrite := *overwrite
+	/////////////////////////////
 
 	/////////////////////////////
 
-	var outputFilename string
-	if outputFilePath != "" {
-		outputFilename = filepath.Base(outputFilePath)
-	} else {
-		outputFilename = fmt.Sprintf("%s.geojson", defaultFilename)
-		if isND {
-			outputFilename = fmt.Sprintf("%s.ndjson", defaultFilename)
-		}
-		outputFilePath = filepath.Join(".", outputFilename)
-	}
-
-	/////////////////////////////
-
-	if inputPath == "" {
+	if *input == "" {
 		fmt.Printf(banner)
 		return
 	}
 
-	if !gjfunks.DirExists(inputPath) {
-		fmt.Printf(ErrorInvalidInputPath)
+	loader := Loader{
+		InputPath:      *input,
+		OutputFilePath: *output,
+		Overwrite:      *overwrite,
+	}
+
+	loader.Input()
+	loader.Output(*ndjson)
+
+	files := loader.Files()
+
+	if err := run(loader, files, *ndjson); err != nil {
+		fmt.Println(err.Error())
 		return
 	}
 
-	if !gjfunks.DirExists(filepath.Dir(*output)) {
-		fmt.Printf(ErrorInvalidOutputPath)
-		return
+}
+
+func run(loader Loader, files []os.FileInfo, isNewlineDelimited bool) error {
+
+	if loader.Err != nil {
+		return loader.Err
 	}
 
-	if gjfunks.FileExists(outputFilePath) && !isOverwrite {
-		fmt.Printf(WarningOutputAlreadyExists, outputFilename)
-		return
-	}
-
-	if gjfunks.FileExists(outputFilePath) && isOverwrite {
-		err := os.Remove(outputFilePath)
-		if err != nil {
-			fmt.Printf(ErrorRemoveOutput)
-			return
-		}
-	}
-
-	/////////////////////////////
-
-	files, err := ioutil.ReadDir(inputPath)
+	outfile, err := os.OpenFile(loader.OutputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Printf(ErrorReadDirFiles)
-		return
+		return fmt.Errorf("%s: unable to create a new output file %s", name, filepath.Base(loader.OutputFilePath))
 	}
+	defer outfile.Close()
 
-	numFiles := len(files)
-	if numFiles == 0 {
-		fmt.Printf(WarningNoFiles)
-		return
-	}
-
-	////////////////////
-
-	file, err := os.OpenFile(outputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
+	filesToProcess := files
 	duplicates := make(map[string]bool)
 
-	filenames := make(chan string)
+	filename := make(chan string)
 	last := make(chan bool)
 	var wg sync.WaitGroup
 
 	////
 
-	logger := log.New(file, "", 0)
+	logger := log.New(outfile, "", 0)
 
-	if !isND {
+	if !isNewlineDelimited {
+		// save last file for the end to handle trailing "," in feature collection features array
+		filesToProcess = files[:len(files)-1]
+
 		logger.Output(2, `{"type":"FeatureCollection","features":[`)
 	}
 
 	for i := 0; i < 15; i++ {
 		wg.Add(1)
-		go func(filenames <-chan string, last <-chan bool) {
+		go func(filename <-chan string, last <-chan bool) {
 			defer wg.Done()
-			worker(filenames, duplicates, dupeKey, logger, isND)
-		}(filenames, last)
+			worker(filename, duplicates, *dupekey, logger, *ndjson)
+		}(filename, last)
 	}
 
-	for _, fi := range files[:len(files)-1] {
-		filename := fi.Name()
-		if !gjfunks.IsGeoJSONExt(filename) {
+	for _, fi := range filesToProcess {
+		if !gjfunks.IsGeoJSONExt(fi.Name()) {
 			continue
 		}
-		inputFilePath := filepath.Join(inputPath, fi.Name())
-		filenames <- inputFilePath
+		inputFilePath := filepath.Join(loader.InputPath, fi.Name())
+		filename <- inputFilePath
 	}
 
-	close(filenames)
+	close(filename)
 	wg.Wait()
 
-	lastFilePath := filepath.Join(inputPath, files[len(files)-1].Name())
-	process(lastFilePath, duplicates, dupeKey, logger, true)
+	if !isNewlineDelimited {
+		// run last file to handle trailing "," in feature collection features array
+		lastFilePath := filepath.Join(loader.InputPath, files[len(files)-1].Name())
+		process(lastFilePath, duplicates, *dupekey, logger, true)
 
-	if !isND {
 		logger.Output(2, `]}`)
 	}
 
+	return nil
 }
 
-func worker(filenames <-chan string, duplicates map[string]bool, dupeKey string, logger *log.Logger, isND bool) {
-	for filename := range filenames {
-		process(filename, duplicates, dupeKey, logger, isND)
+func worker(filename <-chan string, duplicates map[string]bool, dupeKey string, logger *log.Logger, isND bool) {
+	for fi := range filename {
+		process(fi, duplicates, dupeKey, logger, isND)
 	}
 }
 
-func process(filename string, duplicates map[string]bool, dupeKey string, logger *log.Logger, isND bool) {
+func process(filename string, duplicates map[string]bool, dupeKey string, logger *log.Logger, isNewlineDelimited bool) {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		fmt.Printf(ErrorOpenInput, filepath.Base(filename))
+		fmt.Printf("%s: unable to open input file %s...skipping it\n", name, filepath.Base(filename))
 		return
 	}
 
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
-		fmt.Printf(ErrorOpenInput, filepath.Base(filename))
+		fmt.Printf("%s: unable to read input file %s...skipping it\n", name, filepath.Base(filename))
 		return
 	}
 
@@ -203,42 +162,49 @@ func process(filename string, duplicates map[string]bool, dupeKey string, logger
 	if err == nil {
 		fs = append(fs, f)
 	} else {
-		// if feature collection...
 		fc, err := geojson.UnmarshalFeatureCollection(b)
 		if err != nil {
-			fmt.Printf(ErrorInvalidFeatureCollection, filepath.Base(filename))
+			fmt.Printf("%s: invalid geojson feature or collection in input file %s...skipping it\n", name, filepath.Base(filename))
 			return
 		}
 		fs = fc.Features
 	}
 
-	var isDup bool
+	numFeatures := len(fs)
+	badFeatures := 0
+	duplicateFeatures := 0
+
 	for _, f := range fs {
-		if isDup = mapDuplicate(f, dupeKey, duplicates); isDup {
+		if isDuplicate(f, dupeKey, duplicates) {
+			duplicateFeatures++
 			continue
 		}
-
-		// ToDo: feature flag options
-		// 1. reverse ring orientation
-		// ...(check if polygon or if multipolygon)
-		// 2. limit coordinate decimal precision
-		// 3. keep/filter properties
-		// ?. ???
 
 		b, err := json.Marshal(f)
 		if err != nil {
-			fmt.Printf(ErrorJSONConversion)
+			badFeatures++
 			continue
 		}
+
 		line := string(b)
-		if !isND {
+		if !isNewlineDelimited {
 			line = fmt.Sprintf("%s,", line)
 		}
 		logger.Output(2, line)
 	}
+
+	if badFeatures+duplicateFeatures > 0 {
+		fstr := "feature"
+		if numFeatures > 1 {
+			fstr = "features"
+		}
+		fmt.Printf("%s: skipped %d of %d %s in input file %s (%d duplicate, %d bad conversion)\n",
+			name, badFeatures+duplicateFeatures, numFeatures, fstr, filepath.Base(filename), duplicateFeatures, badFeatures,
+		)
+	}
 }
 
-func mapDuplicate(f *geojson.Feature, dupeKey string, duplicates map[string]bool) bool {
+func isDuplicate(f *geojson.Feature, dupeKey string, duplicates map[string]bool) bool {
 	if dupeKey != "" {
 		v, ok := f.Properties[dupeKey]
 		if ok {
@@ -252,3 +218,75 @@ func mapDuplicate(f *geojson.Feature, dupeKey string, duplicates map[string]bool
 	}
 	return false
 }
+
+type Loader struct {
+	InputPath      string
+	OutputFilePath string
+	Overwrite      bool
+	Err            error
+}
+
+func (l *Loader) Input() {
+	if l.Err != nil {
+		return
+	}
+
+	if !gjfunks.DirExists(l.InputPath) {
+		l.Err = fmt.Errorf("%s: input path does not exist or is not valid", name)
+		return
+	}
+}
+
+func (l *Loader) Output(isNewlineDelimited bool) {
+	if l.Err != nil {
+		return
+	}
+
+	var filename string
+	defaultFilename := "gjfeatures"
+
+	if l.OutputFilePath != "" {
+		filename = filepath.Base(l.OutputFilePath)
+	} else {
+		filename = fmt.Sprintf("%s.geojson", defaultFilename)
+		if isNewlineDelimited {
+			filename = fmt.Sprintf("%s.ndjson", defaultFilename)
+		}
+		l.OutputFilePath = filepath.Join(".", filename)
+	}
+
+	if !gjfunks.DirExists(filepath.Dir(l.OutputFilePath)) {
+		l.Err = fmt.Errorf("%s: output path does not exist or is not valid", name)
+		return
+	}
+	if gjfunks.FileExists(l.OutputFilePath) && !l.Overwrite {
+		l.Err = fmt.Errorf("%s: file '%s' already exists...but you can use --overwrite if you want to replace the old file", name, l.OutputFilePath)
+		return
+	}
+	if gjfunks.FileExists(l.OutputFilePath) {
+		err := os.Remove(l.OutputFilePath)
+		if err != nil {
+			l.Err = fmt.Errorf("%s: unable to remove output file", name)
+			return
+		}
+	}
+}
+
+func (l *Loader) Files() []os.FileInfo {
+	if l.Err != nil {
+		return nil
+	}
+	files, err := ioutil.ReadDir(l.InputPath)
+	if err != nil {
+		l.Err = fmt.Errorf("%s: unable to read directory files", name)
+		return nil
+	}
+	numFiles := len(files)
+	if numFiles == 0 {
+		l.Err = fmt.Errorf("%s: no files found in input path", name)
+		return nil
+	}
+	return files
+}
+
+/////////////////////////////

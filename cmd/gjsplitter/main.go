@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -14,6 +13,21 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
+const (
+	banner = `
+╋╋╋╋╋╋╋╋╋╋╋┏┓╋┏┓╋┏┓
+╋╋╋╋┏┓╋╋╋╋╋┃┃┏┛┗┳┛┗┓
+┏━━┓┗╋━━┳━━┫┃┣┓┏┻┓┏╋━━┳━┓
+┃┏┓┃┏┫━━┫┏┓┃┃┣┫┃╋┃┃┃┃━┫┏┛
+┃┗┛┃┃┣━━┃┗┛┃┗┫┃┗┓┃┗┫┃━┫┃
+┗━┓┃┃┣━━┫┏━┻━┻┻━┛┗━┻━━┻┛
+┏━┛┣┛┃╋╋┃┃
+┗━━┻━┛╋╋┗┛
+splitting one geojson file into many
+try "gjsplitter --help" to get started
+`
+)
+
 var (
 	input  = kingpin.Arg("input", "input file").Default("").String()
 	key    = kingpin.Flag("key", "feature property key-value for filename prefix.").Default("").Short('k').String()
@@ -23,14 +37,14 @@ var (
 )
 
 var (
-	ErrorOpenInput                = errors.New("error: unable to open input (filepath or stdin)")
-	WarningInputEmpty             = errors.New("warning: input is empty")
-	ErrorInvalidInputFile         = errors.New("error: input file does not exist or is not valid")
-	ErrorInvalidOutputDir         = errors.New("error: output dir does not exist or is not valid")
-	ErrorInvalidFeatureCollection = errors.New("error: invalid geojson feature collection")
-	ErrorInvalidFeature           = errors.New("error: invalid geojson feature")
-	ErrorJSONConversion           = errors.New("error: unable to convert json")
-	ErrorSaveFile                 = errors.New("error: unable to save output file")
+	ErrorOpenInput                = "gjsplitter: unable to open input (filepath or stdin)\n"
+	WarningInputEmpty             = "gjsplitter: input is empty\n"
+	ErrorInvalidInputFile         = "gjsplitter: input file does not exist or is not valid\n"
+	ErrorInvalidOutputDir         = "gjsplitter: output dir does not exist or is not valid\n"
+	ErrorInvalidFeatureCollection = "gjsplitter: invalid geojson feature collection\n"
+	ErrorInvalidFeature           = "gjsplitter: invalid geojson feature\n"
+	ErrorJSONConversion           = "gjsplitter: unable to convert json\n"
+	ErrorSaveFile                 = "gjsplitter: unable to save output file\n"
 )
 
 func main() {
@@ -39,42 +53,43 @@ func main() {
 
 	file, err := gjfunks.GetFile(*input)
 	if err != nil {
-		fmt.Println(ErrorOpenInput)
+		fmt.Printf(ErrorOpenInput)
 		return
 	}
 	defer file.Close()
 
 	fi, err := file.Stat()
 	if err != nil {
-		fmt.Println(ErrorOpenInput)
+		fmt.Printf(ErrorOpenInput)
 		return
 	}
 	if fi.Size() == 0 {
-		fmt.Println(WarningInputEmpty)
+		fmt.Printf(WarningInputEmpty)
 		return
 	}
 
 	b, err := gjfunks.Open(file)
 	if err != nil {
-		fmt.Println(ErrorOpenInput)
+		fmt.Printf(ErrorOpenInput)
 		return
 	}
 
 	fc, err := geojson.UnmarshalFeatureCollection(b)
 	if err != nil {
-		fmt.Println(ErrorInvalidFeatureCollection)
+		fmt.Printf(ErrorInvalidFeatureCollection)
+		return
 	}
 
 	if *input != "" {
 		if !gjfunks.FileExists(*input) {
-			fmt.Println(ErrorInvalidInputFile)
+			fmt.Printf(ErrorInvalidInputFile)
 			return
 		}
 	}
 
 	if *output != "" {
 		if !gjfunks.DirExists(*output) {
-			fmt.Println(ErrorInvalidOutputDir)
+			fmt.Printf(ErrorInvalidOutputDir)
 			return
 		}
 	}
@@ -89,7 +104,7 @@ func main() {
 			// json w/ no indents if stdout
 			b, err := f.MarshalJSON()
 			if err != nil {
-				fmt.Println(ErrorInvalidFeature)
+				fmt.Printf(ErrorInvalidFeature)
 				return
 			}
 			fmt.Println(string(b))
@@ -140,13 +155,13 @@ func main() {
 		// indent json (pretty-print kinda) if writing to file
 		b, err := json.MarshalIndent(f, "", " ")
 		if err != nil {
-			fmt.Println(ErrorJSONConversion)
+			fmt.Printf(ErrorJSONConversion)
 			return
 		}
 
 		err = ioutil.WriteFile(outputFilePath, b, 0644)
 		if err != nil {
-			fmt.Println(ErrorSaveFile)
+			fmt.Printf(ErrorSaveFile)
 			return
 		}
 	}

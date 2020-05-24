@@ -10,10 +10,11 @@ import (
 func GetFile(filename string) (*os.File, error) {
 	if filename == "" {
 		return os.Stdin, nil
-	} else if FileExists(filename) {
+	}
+	if FileExists(filename) {
 		return os.Open(filename)
 	}
-	return nil, errors.New("unable to open file")
+	return nil, errors.New("unable to get file")
 }
 
 func Open(f *os.File) ([]byte, error) {
