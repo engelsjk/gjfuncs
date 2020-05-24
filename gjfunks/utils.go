@@ -1,7 +1,7 @@
 package gjfunks
 
 import (
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,7 +14,7 @@ func GetFile(filename string) (*os.File, error) {
 	if FileExists(filename) {
 		return os.Open(filename)
 	}
-	return nil, errors.New("unable to get file")
+	return nil, fmt.Errorf("unable to get file %s", filename)
 }
 
 func Open(f *os.File) ([]byte, error) {
