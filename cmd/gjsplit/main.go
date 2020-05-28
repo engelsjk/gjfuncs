@@ -17,7 +17,7 @@ const (
 ┏━┛┣┛┃╋╋┃┃
 ┗━━┻━┛╋╋┗┛
 splitting one geojson file into many
-try "gjsplitter --help" to get started
+try "gjsplit --help" to get started
 `
 )
 

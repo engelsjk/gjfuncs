@@ -36,6 +36,7 @@ func Split(loader Loader, input []byte, opts SplitOptions) error {
 
 	fc, err := geojson.UnmarshalFeatureCollection(input)
 	if err != nil {
+		fmt.Printf(err.Error())
 		return fmt.Errorf("input is an invalid feature collection")
 	}
 

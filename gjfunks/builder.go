@@ -18,7 +18,6 @@ type BuildOptions struct {
 	KeepOnlyKey string
 	NDJSON      bool
 	FixToSpec   bool
-	Verbose     bool
 }
 
 func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
@@ -28,7 +27,6 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	}
 
 	numWorkers := 15
-	countFilesGeoJSON := 0
 
 	outfile, err := os.OpenFile(loader.OutputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -36,37 +34,28 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	}
 	defer outfile.Close()
 
-	filesToProcess := files
-
 	duplicates := make(map[string]bool)
 
 	filename := make(chan string)
-	last := make(chan bool)
 	var wg sync.WaitGroup
 
 	////
 
 	logger := log.New(outfile, "", 0)
-
-	if !opts.NDJSON {
-		// save last file for the end to handle trailing "," in feature collection features array
-		filesToProcess = files[:len(files)-1]
-		logger.Output(2, `{"type":"FeatureCollection","features":[`)
-	}
+	newFC := geojson.NewFeatureCollection()
 
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go func(filename <-chan string, last <-chan bool) {
+		go func(filename <-chan string) {
 			defer wg.Done()
-			buildWorker(filename, duplicates, logger, opts)
-		}(filename, last)
+			buildWorker(filename, newFC, logger, opts, duplicates)
+		}(filename)
 	}
 
-	for _, fi := range filesToProcess {
+	for _, fi := range files {
 		if !IsGeoJSONExt(fi.Name()) {
 			continue
 		}
-		countFilesGeoJSON++
 		inputFilePath := filepath.Join(loader.InputDir, fi.Name())
 		filename <- inputFilePath
 	}
@@ -75,23 +64,26 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	wg.Wait()
 
 	if !opts.NDJSON {
-		// note: the last file is ran to handle trailing "," in feature collection features array
-		lastFilePath := filepath.Join(loader.InputDir, files[len(files)-1].Name())
-		opts.NDJSON = true
-		buildProcess(lastFilePath, duplicates, logger, opts)
-		logger.Output(2, `]}`)
+		b, err := json.MarshalIndent(newFC, "", " ")
+		if err != nil {
+			return err
+		}
+		_, err = outfile.Write(b)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func buildWorker(filename <-chan string, duplicates map[string]bool, logger *log.Logger, opts BuildOptions) {
+func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates map[string]bool) {
 	for fi := range filename {
-		buildProcess(fi, duplicates, logger, opts)
+		buildProcess(fi, newFC, logger, opts, duplicates)
 	}
 }
 
-func buildProcess(filename string, duplicates map[string]bool, logger *log.Logger, opts BuildOptions) {
+func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates map[string]bool) {
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -143,11 +135,12 @@ func buildProcess(filename string, duplicates map[string]bool, logger *log.Logge
 			continue
 		}
 
-		line := string(b)
-		if !opts.NDJSON {
-			line = fmt.Sprintf("%s,", line)
+		if opts.NDJSON {
+			logger.Output(2, string(b))
+			continue
 		}
-		logger.Output(2, line)
+
+		newFC.Append(f)
 	}
 
 	if badFeatures+duplicateFeatures > 0 {
