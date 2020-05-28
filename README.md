@@ -14,7 +14,7 @@ go get github.com/engelsjk/gjfunks/cmd/gjsplit
 * Use custom names or unique key-values from GeoJSON properties for output file prefixes.
 
 ```bash
-usage: main [<flags>] [<input>]
+usage: gjsplit [<flags>] [<input>]
 
 Flags:
       --help              Show context-sensitive help (also try --help-long and --help-man).
@@ -28,7 +28,8 @@ Flags:
 
 Args:
   [<input>]  input file
- 
+``` 
+
 ## gjbuild
 
 Builds a file of a GeoJSON Feature Collection (or new-line delimited GeoJSON Features) from a directory containing many separate files of GeoJSON Features or Feature Collections.
@@ -43,7 +44,7 @@ go get github.com/engelsjk/gjfunks/cmd/gjbuild
 * Fix polygon windings to meet RFC 7946 S3.1.6. specification.
 
 ```bash
-usage: main [<flags>] [<input>]
+usage: gjbuild [<flags>] [<input>]
 
 Flags:
       --help              Show context-sensitive help (also try --help-long and --help-man).
