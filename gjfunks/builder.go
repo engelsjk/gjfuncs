@@ -34,7 +34,7 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	}
 	defer outfile.Close()
 
-	duplicates := make(map[string]bool)
+	var duplicates sync.Map
 
 	filename := make(chan string)
 	var wg sync.WaitGroup
@@ -77,13 +77,13 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	return nil
 }
 
-func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates map[string]bool) {
+func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates sync.Map) {
 	for fi := range filename {
 		buildProcess(fi, newFC, logger, opts, duplicates)
 	}
 }
 
-func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates map[string]bool) {
+func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates sync.Map) {
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -154,17 +154,17 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	}
 }
 
-func isDuplicate(f *geojson.Feature, dupeKey string, duplicates map[string]bool) bool {
+func isDuplicate(f *geojson.Feature, dupeKey string, duplicates sync.Map) bool {
 	if dupeKey == "" {
 		return false
 	}
 	v, ok := f.Properties[dupeKey]
 	if ok {
 		if s, ok := v.(string); ok {
-			if duplicates[s] {
+			if _, ok := duplicates.Load(s); ok {
 				return true
 			}
-			duplicates[s] = true
+			duplicates.Store(s, true)
 		}
 	}
 	return false
