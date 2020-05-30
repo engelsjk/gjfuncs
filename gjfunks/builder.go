@@ -18,6 +18,7 @@ type BuildOptions struct {
 	KeepOnlyKey string
 	NDJSON      bool
 	FixToSpec   bool
+	Duplicates  *sync.Map
 }
 
 func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
@@ -34,10 +35,10 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	}
 	defer outfile.Close()
 
-	var duplicates sync.Map
-
 	filename := make(chan string)
 	var wg sync.WaitGroup
+
+	opts.Duplicates = &sync.Map{}
 
 	////
 
@@ -48,7 +49,7 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 		wg.Add(1)
 		go func(filename <-chan string) {
 			defer wg.Done()
-			buildWorker(filename, newFC, logger, opts, duplicates)
+			buildWorker(filename, newFC, logger, opts)
 		}(filename)
 	}
 
@@ -77,13 +78,13 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	return nil
 }
 
-func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates sync.Map) {
+func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) {
 	for fi := range filename {
-		buildProcess(fi, newFC, logger, opts, duplicates)
+		buildProcess(fi, newFC, logger, opts)
 	}
 }
 
-func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions, duplicates sync.Map) {
+func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) {
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -116,7 +117,7 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	duplicateFeatures := 0
 
 	for _, f := range fs {
-		if isDuplicate(f, opts.FilterKey, duplicates) {
+		if isDuplicate(f, opts.FilterKey, opts.Duplicates) {
 			duplicateFeatures++
 			continue
 		}
@@ -154,18 +155,16 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	}
 }
 
-func isDuplicate(f *geojson.Feature, dupeKey string, duplicates sync.Map) bool {
+func isDuplicate(f *geojson.Feature, dupeKey string, duplicates *sync.Map) bool {
 	if dupeKey == "" {
 		return false
 	}
 	v, ok := f.Properties[dupeKey]
 	if ok {
-		if s, ok := v.(string); ok {
-			if _, ok := duplicates.Load(s); ok {
-				return true
-			}
-			duplicates.Store(s, true)
+		if _, ok := duplicates.Load(v); ok {
+			return true
 		}
+		duplicates.Store(v, true)
 	}
 	return false
 }
