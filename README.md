@@ -63,3 +63,7 @@ Args:
 
 * Add tests
 * Compare performance benchmarks to different size GeoJSON files
+* gjsplit
+  * Add flag to output flat files
+  * Add progress bar?
+  * Output warning about how many features did not have out-key property
