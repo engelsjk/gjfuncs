@@ -25,10 +25,11 @@ var (
 	input       = kingpin.Arg("input", "input file").Default("").String()
 	output      = kingpin.Flag("output", "output dir").Default("").Short('o').String()
 	stdOut      = kingpin.Flag("stdout", "print to stdout only").Default("false").Bool()
-	keepOnlyKey = kingpin.Flag("keep-only-key", "keep only this feature property key").Default("").String()
-	outKey      = kingpin.Flag("out-key", "feature property key-value for output file prefixes").Default("").String()
-	outPrefix   = kingpin.Flag("out-prefix", "output file prefix").Default("").String()
-	fixToSpec   = kingpin.Flag("fix-to-spec", "fix polygon/multipolygon features to meet RFC7946 S3.1.6").Default("false").Bool()
+	keepOnlyKey = kingpin.Flag("keeponlykey", "keep only this feature property key").Default("").String()
+	outKey      = kingpin.Flag("outkey", "feature property key-value for output file prefixes").Default("").String()
+	outPrefix   = kingpin.Flag("outprefix", "output file prefix").Default("").String()
+	flatFile    = kingpin.Flag("flat", "flat file").Default("true").Bool()
+	fixToSpec   = kingpin.Flag("fixtospec", "fix polygon/multipolygon features to meet RFC7946 S3.1.6").Default("false").Bool()
 	dryRun      = kingpin.Flag("dry-run", "no output files saved").Default("false").Short('d').Bool()
 )
 
@@ -58,6 +59,7 @@ func main() {
 		OutKey:        *outKey,
 		KeepOnlyKey:   *keepOnlyKey,
 		OutPrefix:     *outPrefix,
+		FlatFile:      *flatFile,
 		FixToSpec:     *fixToSpec,
 		StdOut:        *stdOut,
 		DryRun:        *dryRun,

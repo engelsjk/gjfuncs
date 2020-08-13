@@ -16,6 +16,7 @@ type SplitOptions struct {
 	OutputDir     string
 	OutKey        string
 	OutPrefix     string
+	FlatFile      bool
 	KeepOnlyKey   string
 	FixToSpec     bool
 	StdOut        bool
@@ -83,7 +84,7 @@ func splitProcess(fid *FeatureAndID, opts SplitOptions) {
 	outputFilePath := makeFilepath(fid, opts)
 
 	if opts.KeepOnlyKey != "" {
-		removeAllPropertiesExcept(fid.Feature, opts.KeepOnlyKey)
+		RemoveAllPropertiesExcept(fid.Feature, opts.KeepOnlyKey)
 	}
 
 	if opts.FixToSpec {
@@ -110,7 +111,13 @@ func splitProcess(fid *FeatureAndID, opts SplitOptions) {
 		return
 	}
 
-	b, err := json.MarshalIndent(fid.Feature, "", " ")
+	var b []byte
+	var err error
+	if opts.FlatFile {
+		b, err = json.Marshal(fid.Feature)
+	} else {
+		b, err = json.MarshalIndent(fid.Feature, "", " ")
+	}
 	if err != nil {
 		fmt.Printf("unable to convert feature to geojson")
 		return

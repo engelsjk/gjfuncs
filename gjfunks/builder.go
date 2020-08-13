@@ -9,16 +9,16 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 )
 
 type BuildOptions struct {
-	FilterKey   string
-	KeepOnlyKey string
-	NDJSON      bool
-	FixToSpec   bool
-	Duplicates  *sync.Map
+	FilterKey         string
+	KeepOnlyKey       string
+	NDJSON            bool
+	FixToSpec         bool
+	SplitMultiPolygon bool
+	Duplicates        *sync.Map
 }
 
 func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
@@ -101,6 +101,7 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	var fs []*geojson.Feature
 
 	f, err := geojson.UnmarshalFeature(b)
+
 	if err == nil {
 		fs = append(fs, f)
 	} else {
@@ -117,17 +118,34 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	duplicateFeatures := 0
 
 	for _, f := range fs {
-		if isDuplicate(f, opts.FilterKey, opts.Duplicates) {
+		if IsDuplicate(f, opts.FilterKey, opts.Duplicates) {
 			duplicateFeatures++
 			continue
 		}
 
-		if opts.KeepOnlyKey != "" {
-			removeAllPropertiesExcept(f, opts.KeepOnlyKey)
-		}
-
 		if opts.FixToSpec {
 			FixPolygons(f)
+		}
+
+		if opts.KeepOnlyKey != "" {
+			RemoveAllPropertiesExcept(f, opts.KeepOnlyKey)
+		}
+
+		if opts.SplitMultiPolygon {
+			tmpFs := SplitMultiPolygon(f)
+			for _, tmpF := range tmpFs {
+				b, err := json.Marshal(tmpF)
+				if err != nil {
+					badFeatures++
+					continue
+				}
+				if opts.NDJSON {
+					logger.Output(2, string(b))
+					continue
+				}
+				newFC.Append(f)
+			}
+			continue
 		}
 
 		b, err := json.Marshal(f)
@@ -155,7 +173,7 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 	}
 }
 
-func isDuplicate(f *geojson.Feature, dupeKey string, duplicates *sync.Map) bool {
+func IsDuplicate(f *geojson.Feature, dupeKey string, duplicates *sync.Map) bool {
 	if dupeKey == "" {
 		return false
 	}
@@ -167,28 +185,4 @@ func isDuplicate(f *geojson.Feature, dupeKey string, duplicates *sync.Map) bool 
 		duplicates.Store(v, true)
 	}
 	return false
-}
-
-func removeAllPropertiesExcept(f *geojson.Feature, keepOnlyKey string) {
-	for k := range f.Properties {
-		if k != keepOnlyKey {
-			delete(f.Properties, k)
-		}
-	}
-}
-
-func fixPolygon(p orb.Polygon) {
-	// fix ring orientation to rfc7946 s3.1.6
-
-	// outer ring must be counter-clockwise
-	if p[0].Orientation() == -1 {
-		p[0].Reverse()
-	}
-
-	// inner rings (aka holes) must be clockwise
-	for _, pi := range p[1:] {
-		if pi.Orientation() == 1 {
-			pi.Reverse()
-		}
-	}
 }
