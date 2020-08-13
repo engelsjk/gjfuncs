@@ -20,11 +20,12 @@ Flags:
       --help              Show context-sensitive help (also try --help-long and --help-man).
   -o, --output=""         output dir
       --stdout            print to stdout only
-      --keep-only-key=""  keep only this feature property key
-      --out-key=""        feature property key-value for output file prefixes
-      --out-prefix=""     output file prefix
-      --fix-to-spec       fix polygon/multipolygon features to meet RFC7946 S3.1.6
-  -d, --dry-run           no output files saved
+      --keeponlykey=""    keep only this feature property key
+      --outkey=""         feature property key-value for output file prefixes
+      --outprefix=""      output file prefix
+      --flat              flat file
+      --fixtospec         fix polygon/multipolygon features to meet RFC7946 S3.1.6
+  -d, --dryrun            no output files saved
 
 Args:
   [<input>]  input file
@@ -49,10 +50,10 @@ usage: gjbuild [<flags>] [<input>]
 Flags:
       --help              Show context-sensitive help (also try --help-long and --help-man).
   -o, --output=""         output filepath
-      --filter-key=""     feature property key to filter duplicate values
-      --keep-only-key=""  keep only this feature property key
+      --filterkey=""      feature property key to filter duplicate values
+      --keeponlykey=""    keep only this feature property key
       --ndjson            output as newline-delimited json
-      --fix-to-spec       fix polygon/multipolygon features to meet RFC7946 S3.1.6
+      --fixtospec         fix polygon/multipolygon features to meet RFC7946 S3.1.6
       --overwrite         overwrite existing output file
 
 Args:
@@ -64,6 +65,5 @@ Args:
 * Add tests
 * Compare performance benchmarks to different size GeoJSON files
 * gjsplit
-  * Add flag to output flat files
   * Add progress bar?
   * Output warning about how many features did not have out-key property
