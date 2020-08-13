@@ -30,7 +30,7 @@ var (
 	outPrefix   = kingpin.Flag("outprefix", "output file prefix").Default("").String()
 	flatFile    = kingpin.Flag("flat", "flat file").Default("true").Bool()
 	fixToSpec   = kingpin.Flag("fixtospec", "fix polygon/multipolygon features to meet RFC7946 S3.1.6").Default("false").Bool()
-	dryRun      = kingpin.Flag("dry-run", "no output files saved").Default("false").Short('d').Bool()
+	dryRun      = kingpin.Flag("dryrun", "no output files saved").Default("false").Short('d').Bool()
 )
 
 func main() {
