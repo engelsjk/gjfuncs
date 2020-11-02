@@ -100,7 +100,11 @@ func splitByLine(l Loader, chfid chan *FeatureAndID) error {
 		return l.Err
 	}
 
-	const maxCapacity = 1024 * 1024
+	// todo: how to optimize max capacity?
+	// or warn if line exceeds buffer capacity?
+	// flag to set higher buffer limit?
+
+	const maxCapacity = 2048 * 2048
 	buf := make([]byte, maxCapacity)
 
 	scanner := bufio.NewScanner(l.File)
