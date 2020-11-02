@@ -1,6 +1,7 @@
 package gjfunks
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,15 +13,16 @@ import (
 )
 
 type SplitOptions struct {
-	InputFilePath string
-	OutputDir     string
-	OutKey        string
-	OutPrefix     string
-	FlatFile      bool
-	KeepOnlyKey   string
-	FixToSpec     bool
-	StdOut        bool
-	DryRun        bool
+	InputFilePath    string
+	NewlineDelimited bool
+	OutputDir        string
+	OutKey           string
+	OutPrefix        string
+	FlatFile         bool
+	KeepOnlyKey      string
+	FixToSpec        bool
+	StdOut           bool
+	DryRun           bool
 }
 
 type FeatureAndID struct {
@@ -28,23 +30,14 @@ type FeatureAndID struct {
 	ID      string
 }
 
-func Split(loader Loader, input []byte, opts SplitOptions) error {
+func Split(loader Loader, opts SplitOptions) error {
 	if loader.Err != nil {
 		return loader.Err
 	}
 
 	numWorkers := 15
 
-	fc, err := geojson.UnmarshalFeatureCollection(input)
-	if err != nil {
-		fmt.Printf(err.Error())
-		return fmt.Errorf("input is an invalid feature collection")
-	}
-
-	numFeatures := len(fc.Features)
-	width := 1 + int(math.Log10(float64(numFeatures)))
-
-	fid := make(chan *FeatureAndID)
+	chfid := make(chan *FeatureAndID)
 
 	var wg sync.WaitGroup
 
@@ -53,22 +46,90 @@ func Split(loader Loader, input []byte, opts SplitOptions) error {
 		go func(fid <-chan *FeatureAndID) {
 			defer wg.Done()
 			splitWorker(fid, opts)
-		}(fid)
+		}(chfid)
 	}
+
+	var err error
+	if opts.NewlineDelimited {
+		err = splitByLine(loader, chfid)
+	} else {
+		err = splitByFeatureCollection(loader, chfid)
+	}
+	if err != nil {
+		return err
+	}
+
+	close(chfid)
+	wg.Wait()
+
+	return nil
+}
+
+func splitByFeatureCollection(l Loader, chfid chan *FeatureAndID) error {
+
+	b := l.ReadInput()
+	if l.Err != nil {
+		return l.Err
+	}
+
+	fc, err := geojson.UnmarshalFeatureCollection(b)
+	if err != nil {
+		fmt.Printf(err.Error())
+		return fmt.Errorf("input is an invalid feature collection")
+	}
+
+	numFeatures := len(fc.Features)
+	width := 1 + int(math.Log10(float64(numFeatures)))
 
 	var counter int64 = 0
 	for _, f := range fc.Features {
 		counter++
 		id := fmt.Sprintf("%0*d", width, counter)
-		fid <- &FeatureAndID{
+		chfid <- &FeatureAndID{
+			Feature: f,
+			ID:      id,
+		}
+	}
+	return nil
+}
+
+func splitByLine(l Loader, chfid chan *FeatureAndID) error {
+
+	l.OpenFile()
+	if l.Err != nil {
+		return l.Err
+	}
+
+	const maxCapacity = 1024 * 1024
+	buf := make([]byte, maxCapacity)
+
+	scanner := bufio.NewScanner(l.File)
+	scanner.Buffer(buf, maxCapacity)
+	scanner.Split(bufio.ScanLines)
+
+	var counter int64 = 0
+
+	for scanner.Scan() {
+
+		b := scanner.Bytes()
+
+		f, err := geojson.UnmarshalFeature(b)
+		if err != nil {
+			fmt.Printf("warning: skipping invalid feature\n")
+			continue
+		}
+
+		counter++
+
+		id := fmt.Sprintf("%0d", counter)
+
+		chfid <- &FeatureAndID{
 			Feature: f,
 			ID:      id,
 		}
 	}
 
-	close(fid)
-	wg.Wait()
-
+	l.File.Close()
 	return nil
 }
 

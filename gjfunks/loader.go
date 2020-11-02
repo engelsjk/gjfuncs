@@ -13,6 +13,7 @@ type Loader struct {
 	OutputDir      string
 	InputFilePath  string
 	OutputFilePath string
+	File           *os.File
 	Overwrite      bool
 	Err            error
 }
@@ -79,6 +80,15 @@ func (l *Loader) SetOutputFilePath(isNewlineDelimited bool) {
 			return
 		}
 	}
+}
+
+func (l *Loader) OpenFile() {
+	file, err := GetFile(l.InputFilePath)
+	if err != nil {
+		l.Err = fmt.Errorf("%s: unable to open input (filepath or stdin)", l.Name)
+		return
+	}
+	l.File = file
 }
 
 func (l *Loader) ListFiles() []os.FileInfo {
