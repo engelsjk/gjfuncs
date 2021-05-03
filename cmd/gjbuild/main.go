@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/engelsjk/gjfunks/gjfunks"
+	"github.com/engelsjk/gjfunks"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
