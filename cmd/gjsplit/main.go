@@ -8,15 +8,8 @@ import (
 )
 
 const (
-	banner = `╋╋╋╋╋╋╋╋╋╋╋┏┓╋┏┓
-╋╋╋╋┏┓╋╋╋╋╋┃┃┏┛┗┓
-┏━━┓┗╋━━┳━━┫┃┣┓┏┛
-┃┏┓┃┏┫━━┫┏┓┃┃┣┫┃
-┃┗┛┃┃┣━━┃┗┛┃┗┫┃┗┓
-┗━┓┃┃┣━━┫┏━┻━┻┻━┛
-┏━┛┣┛┃╋╋┃┃
-┗━━┻━┛╋╋┗┛
-splitting one geojson file into many
+	name   = "gjsplit"
+	banner = `splitting one geojson file into many
 try "gjsplit --help" to get started
 `
 )
