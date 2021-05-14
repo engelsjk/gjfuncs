@@ -92,7 +92,6 @@ func buildWorker(filename <-chan string, mu *sync.Mutex, newFC *geojson.FeatureC
 }
 
 func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) *geojson.FeatureCollection {
-	fmt.Println(filename)
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Printf("unable to open input file %s...skipping it\n", filepath.Base(filename))

@@ -1,3 +1,3 @@
 go build -o gjbuild cmd/gjbuild/main.go
 
-gjbuild /home/engelsjk/Desktop/MultnomahCountyParcels/tiles -o /home/engelsjk/Desktop/MultnomahCountyParcels/tiles.geojson --overwrite
+./gjbuild /home/engelsjk/Desktop/MultnomahCountyParcels/tiles -o /home/engelsjk/Desktop/MultnomahCountyParcels/tiles.geojson --overwrite
