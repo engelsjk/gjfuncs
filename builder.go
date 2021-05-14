@@ -40,6 +40,8 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 
 	opts.Duplicates = &sync.Map{}
 
+	mu := sync.Mutex{}
+
 	////
 
 	logger := log.New(outfile, "", 0)
@@ -49,7 +51,12 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 		wg.Add(1)
 		go func(filename <-chan string) {
 			defer wg.Done()
-			buildWorker(filename, newFC, logger, opts)
+			fc := buildWorker(<-filename, newFC, logger, opts)
+			for _, f := range fc.Features {
+				mu.Lock()
+				newFC.Append(f)
+				mu.Unlock()
+			}
 		}(filename)
 	}
 
@@ -78,39 +85,33 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	return nil
 }
 
-func buildWorker(filename <-chan string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) {
-	for fi := range filename {
-		buildProcess(fi, newFC, logger, opts)
-	}
-}
-
-func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) {
-
+func buildWorker(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) *geojson.FeatureCollection {
+	fmt.Println(filename)
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Printf("unable to open input file %s...skipping it\n", filepath.Base(filename))
-		return
+		return nil
 	}
 
 	b, err := ioutil.ReadAll(file)
 	if err != nil {
 		fmt.Printf("unable to read input file %s...skipping it\n", filepath.Base(filename))
-		return
+		return nil
 	}
 
 	var fs []*geojson.Feature
+	fc := geojson.NewFeatureCollection()
 
 	f, err := geojson.UnmarshalFeature(b)
-
 	if err == nil {
 		fs = append(fs, f)
 	} else {
-		fc, err := geojson.UnmarshalFeatureCollection(b)
+		fct, err := geojson.UnmarshalFeatureCollection(b)
 		if err != nil {
 			fmt.Printf("invalid geojson feature or collection in input file %s...skipping it\n", filepath.Base(filename))
-			return
+			return nil
 		}
-		fs = fc.Features
+		fs = fct.Features
 	}
 
 	numFeatures := len(fs)
@@ -143,7 +144,7 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 					logger.Output(2, string(b))
 					continue
 				}
-				newFC.Append(f)
+				fc.Append(f)
 			}
 			continue
 		}
@@ -158,8 +159,7 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 			logger.Output(2, string(b))
 			continue
 		}
-
-		newFC.Append(f)
+		fc.Append(f)
 	}
 
 	if badFeatures+duplicateFeatures > 0 {
@@ -171,6 +171,8 @@ func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log
 			badFeatures+duplicateFeatures, numFeatures, fstr, filepath.Base(filename), duplicateFeatures, badFeatures,
 		)
 	}
+
+	return fc
 }
 
 func IsDuplicate(f *geojson.Feature, dupeKey string, duplicates *sync.Map) bool {
