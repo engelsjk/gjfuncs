@@ -40,7 +40,7 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 
 	opts.Duplicates = &sync.Map{}
 
-	mu := sync.Mutex{}
+	mu := &sync.Mutex{}
 
 	////
 
@@ -51,12 +51,7 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 		wg.Add(1)
 		go func(filename <-chan string) {
 			defer wg.Done()
-			fc := buildWorker(<-filename, newFC, logger, opts)
-			for _, f := range fc.Features {
-				mu.Lock()
-				newFC.Append(f)
-				mu.Unlock()
-			}
+			buildWorker(filename, mu, newFC, logger, opts)
 		}(filename)
 	}
 
@@ -85,7 +80,18 @@ func Build(loader Loader, files []os.FileInfo, opts BuildOptions) error {
 	return nil
 }
 
-func buildWorker(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) *geojson.FeatureCollection {
+func buildWorker(filename <-chan string, mu *sync.Mutex, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) {
+	for fi := range filename {
+		fc := buildProcess(fi, newFC, logger, opts)
+		for _, f := range fc.Features {
+			mu.Lock()
+			newFC.Append(f)
+			mu.Unlock()
+		}
+	}
+}
+
+func buildProcess(filename string, newFC *geojson.FeatureCollection, logger *log.Logger, opts BuildOptions) *geojson.FeatureCollection {
 	fmt.Println(filename)
 	file, err := os.Open(filename)
 	if err != nil {
